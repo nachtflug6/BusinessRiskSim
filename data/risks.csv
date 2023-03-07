@@ -1,0 +1,6 @@
+﻿risks;delivery assurance;;customer requirements;;product data;;green conversion;;companies
+;frequency;impact;frequency;impact;frequency;impact;frequency;impact;
+machine breakdown;1;1; -   ; -   ; -   ; -   ; -   ; -   ;a b
+data missing; -   ; -   ; -   ; -   ;1;1; -   ; -   ;a
+issue with furnace;1;1;1;1;1;1;1;1;c
+flatness of steel; -   ; -   ;1;1; -   ; -   ; -   ; -   ;a c

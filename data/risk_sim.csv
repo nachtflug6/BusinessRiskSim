@@ -1,0 +1,8 @@
+Risks;Companies;Disruption;Frequency;delivery assurance;customer requirements;product data;green conversion
+Data is missing;a, b;Order is late;1;1;;1;
+Different data format;a, b, c;Production is blocked;0.5;1;;1;
+Cyber-security issues;a, b, c;Critical data is not shared with stakeholders;0.5;1;;1;
+Issues with machines/furnaces;c;Production is blocked;1;1;1;1;1
+Deviations in material characteristics;a, c;Delay in supplying product to customer;0.5;1;1;;
+Dependency on supplier;a, b;Lack of redundancy leads to disruption in operations;1;1;;1;
+Machine breakdown;a;;1;1;;;
