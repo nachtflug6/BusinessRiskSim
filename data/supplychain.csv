@@ -1,0 +1,9 @@
+﻿Company;Supplier
+a;origin
+b;a
+c;b, a
+d;a, c
+e;a, d
+f;e, d, b
+g;a, b
+aa;a, b
