@@ -1,56 +1,42 @@
-from events import generate_risk_events
-from disruptions import *
+from .events import generate_risk_events
+from .disruptions import *
 
 import timeit
 
+def get_disruptions(event_tensor: th.Tensor, params: list, device='cpu'):
+    num_disruptions = len(params)
+    output_tensor = th.zeros_like(event_tensor)
 
-def bundle_disruptions(event_tensor: th.Tensor, params: list, device='cpu'):
-    output_shape = (4, *event_tensor.shape)
-    output_tensor = th.zeros(size=output_shape)
-
-    for i in range(4):
+    for i in range(num_disruptions):
         match params[i]['disruption_type']:
             case 'u':
-                output_tensor[i] = u_disruption(event_tensor, params[i]['low'], params[i]['interval'], device=device)
+                output_tensor[i] = u_disruption(event_tensor[i], params[i]['low'], params[i]['interval'], device=device)
             case 'v':
-                output_tensor[i] = v_disruption(event_tensor, params[i]['low'], params[i]['interval'], device=device)
+                output_tensor[i] = v_disruption(event_tensor[i], params[i]['low'], params[i]['interval'], device=device)
 
     return output_tensor
 
 
 class Risk:
-    def __init__(self, name, description, probability, params: list):
-        self.name = name
-        self.description = description
-        self.probability = probability
-        self.params = params
+    def __init__(self, risk_params: dict):
+        self.name = risk_params['name']
+        self.description = risk_params['description']
+        self.probability = risk_params['probability']
+        self.num_propagating_values = len(risk_params['disruptions'])
+        self.params = risk_params['disruptions']
 
     def evaluate_risk(self, shape, device='cpu'):
         risk_events = generate_risk_events(self.probability, shape, device=device)
-        tensors = bundle_disruptions(risk_events, self.params, device=device)
+        tensors = get_disruptions(risk_events, self.params, device=device)
 
+    def display(self, shape, device='cpu'):
+        assert len(shape) == 2
+        shape = (self.num_propagating_values, *shape)
+        event_tensor = th.zeros(shape)
+        event_tensor[:, :, 3] = 1
+        tensors = get_disruptions(event_tensor, self.params, device=device)
         return tensors
 
 
-params = [
-    {'disruption_type': 'u', 'low': 0.2, 'interval': 2},
-    {'disruption_type': 'v', 'low': 0.3, 'interval': (2, 2)},
-    {'disruption_type': 'u', 'low': 0.4, 'interval': 2},
-    {'disruption_type': 'v', 'low': 0.5, 'interval': (2, 2)},
-]
-
-start = timeit.default_timer()
-
-#Your statements here
 
 
-
-ris = Risk('huhu', 'huhu', 0.1, params)
-
-
-
-print(ris.evaluate_risk((100, 1000000)).shape)
-
-stop = timeit.default_timer()
-
-print('Time: ', stop - start)
