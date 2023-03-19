@@ -29,6 +29,8 @@ class Risk:
         risk_events = generate_risk_events(self.probability, shape, device=device)
         tensors = get_disruptions(risk_events, self.params, device=device)
 
+        return tensors
+
     def display(self, shape, device='cpu'):
         assert len(shape) == 2
         shape = (self.num_propagating_values, *shape)
