@@ -58,6 +58,11 @@ class Risk(object):
         return self.current_capacity
 
 
+class RiskAssembly:
+    def __init__(self, risk_list):
+        pass
+
+
 def get_risk_capacities(risks):
     if type(risks) is list:
         capacity = 1
@@ -77,13 +82,19 @@ def get_risk_capacities(risks):
 
     return capacity
 
+# class SupplierNetwork:
+#     def __init__(self):
+#         pass
+#
+#     def demand(self):
 
-class Company(object):
-    def __init__(self, name, risks, parts_step=1000, input_warehouse_size=10, output_warehouse_size=10):
-        #self.env = env
+
+class Module(object):
+    def __init__(self, name, risks, supplier_modules=None, output_parts_step=1000, input_warehouse_size=10, output_warehouse_size=10):
         self.name = name
         self.risks = risks
-        self.parts_step = parts_step
+        # self.modules = modules
+        # self.parts_step = parts_step
         self.input_warehouse_size = input_warehouse_size
         self.output_warehouse_size = output_warehouse_size
         self.input_warehouse_stock = 0
@@ -93,6 +104,7 @@ class Company(object):
         self.capacities = []
 
     def produce(self):
+
 
         current_capacity = get_risk_capacities(self.risks)
         self.capacities.append(current_capacity)
@@ -104,6 +116,11 @@ class Company(object):
     def disrupt_production(self):
         pass
 
+class Chain:
+    def __init__(self):
+        pass
+
+
 
 risk_list = [Risk('aaa', probability=0.2, recover_time=3, gradual_recover=True),
              Risk('aaa', probability=0.1, recover_time=10, gradual_recover=True),
@@ -114,14 +131,14 @@ risk_list = [Risk('aaa', probability=0.2, recover_time=3, gradual_recover=True),
              Risk('aaa', probability=0.001, recover_time=1000, gradual_recover=True),
              Risk('aaa', probability=0.1, recover_time=1)
              ]
-#
-# comp = Company('comp', risk_list)
-#
-# for i in range(100000):
-#     comp.produce()
-#
-# plt.plot(comp.capacities)
-# plt.show()
+
+comp = Module('comp', risk_list)
+
+for i in range(100000):
+    comp.produce()
+
+plt.plot(comp.capacities)
+plt.show()
 
 
 
