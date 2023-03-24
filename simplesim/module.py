@@ -3,7 +3,6 @@ from .product import Product
 class Module:
     def __init__(self, name, risks, product: Product, suppliers=[], output_step=1000, output_warehouse_max=None):
 
-        assert product.match_to_suppliers(suppliers)
         self.name = name
         self.risks = risks
         self.product = product
@@ -15,6 +14,28 @@ class Module:
         self.risks = risks
         self.capacity = 1
         self.capacities = []
+
+
+        # preproducts = []
+        #
+        # for preproduct in product.preproducts:
+        #     if preproduct[0] not in preproducts:
+        #         preproducts.append(preproduct[0])
+        #
+        # suppliers_product = []
+        #
+        # for supplier in suppliers:
+        #     if supplier.product not in suppliers_product:
+        #         suppliers_product.append(suppliers_product)
+        #
+        # if set(preproducts) == set(suppliers_product):
+        #     return True
+        # else:
+        #     return False
+
+
+
+
 
     # def produce(self):
     #
