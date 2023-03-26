@@ -1,10 +1,10 @@
 import numpy as np
 
 class Risk:
-    def __init__(self, name, probability=0.5, capacity_multiplier=0.5, recover_time=100, gradual_recover=False):
+    def __init__(self, name, probability=0.5, capacity_reduction=0.5, recover_time=100, gradual_recover=False):
         self.name = name
         self.probability = probability
-        self.capacity_multiplier = capacity_multiplier
+        self.capacity_multiplier = capacity_reduction
         self.current_capacity = 1
         self.active = False
         self.remaining_recover_time = 0

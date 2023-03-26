@@ -18,8 +18,8 @@ class Product:
 
 class PreProduct:
     def __init__(self, product: Product, num: int):
-        product = product
-        num = num
+        self.product = product
+        self.num = num
 
     # def match_to_suppliers(self, suppliers: [Module]):
     #     preproducts = []

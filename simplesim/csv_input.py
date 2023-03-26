@@ -4,8 +4,9 @@ import math
 
 from .product import Product, PreProduct
 from .module import Module
-
+from .risk import Risk
 from .chain import Chain
+
 
 class CSVInput:
     def __init__(self, dir):
@@ -15,25 +16,24 @@ class CSVInput:
 
         path_product = os.path.join(self.dir, 'product_chart.csv')
         path_chain = os.path.join(self.dir, 'chain_chart.csv')
-        path_risks = os.path.join(self.dir, 'risk_chart.csv')
+        path_module = os.path.join(self.dir, 'module_chart.csv')
+        path_risk = os.path.join(self.dir, 'risk_chart.csv')
 
         assert os.path.isfile(path_product)
         assert os.path.isfile(path_chain)
-        assert os.path.isfile(path_risks)
-
+        assert os.path.isfile(path_module)
+        assert os.path.isfile(path_risk)
 
         ## Create Product Tree
 
-        product_df = pd.read_csv(path_product, sep=';')
+        product_df = pd.read_csv(path_product, sep=';', index_col=0)
         products = {}
 
-        for idx in product_df.index:
-            row = product_df.iloc[idx]
-            name = row['product']
-            prod = Product(name)
-            products[name] = prod
+        for risk_name in product_df.index:
+            # row = product_df.loc[product_name]
+            prod = Product(risk_name)
+            products[risk_name] = prod
 
-        product_df = product_df.drop('product', axis=1)
         product_df = product_df.where(product_df == product_df, 0.0)
 
         for i, key1 in enumerate(product_df, 0):
@@ -47,24 +47,37 @@ class CSVInput:
 
         ## Create Module Tree
 
-        chain_df = pd.read_csv(path_chain, sep=';')
+        chain_df = pd.read_csv(path_chain, sep=';', index_col=0)
+        module_df = pd.read_csv(path_module, sep=';', index_col=0)
+
         modules = {}
 
-        for idx in chain_df.index:
-            row = chain_df.iloc[idx]
-            name = row['module']
-            mod = Module(name, 1, Product(name))
-            modules[name] = mod
+        for module_name in module_df.index:
+            row = module_df.loc[module_name]
+            risk_name = row['product']
+            mod = Module(module_name, products[risk_name])
+            modules[module_name] = mod
 
-        print(modules)
+        for module_name in modules:
+            row = chain_df.loc[module_name]
+            for supplier in row.index:
+                # if row[supplier] == row[supplier]:
+                if row[supplier] == 'x':
+                    modules[module_name].add_supplier(modules[supplier])
 
-        risk_df = pd.read_csv(path_risks, sep=';')
-        print(risk_df)
+        ## Add Risks
 
+        risk_df = pd.read_csv(path_risk, sep=';', index_col=0)
 
+        for risk_name in risk_df.index:
+            row = risk_df.loc[risk_name]
+            affected_companies = row['modules'].replace(' ', '').split(',')
 
+            for affected_company in affected_companies:
+                modules[affected_company].add_risk(
+                    Risk(risk_name, probability=row['probability'], capacity_reduction=row['capacity reduction'],
+                         recover_time=row['recover time']))
 
+        chain = Chain(modules)
 
-
-
-
+        print('success', chain.modules)

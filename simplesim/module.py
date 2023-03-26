@@ -1,10 +1,9 @@
 from .product import Product
 
 class Module:
-    def __init__(self, name, risks, product: Product, suppliers=[], output_step=1000, output_warehouse_max=None):
+    def __init__(self, name, product: Product, suppliers={}, risks={}, output_step=1000, output_warehouse_max=None):
 
         self.name = name
-        self.risks = risks
         self.product = product
         self.suppliers = suppliers
         self.parts_step = output_step
@@ -14,6 +13,23 @@ class Module:
         self.risks = risks
         self.capacity = 1
         self.capacities = []
+
+    def add_risk(self, risk):
+
+        self.risks[risk.name] = risk
+
+    def add_supplier(self, supplier):
+
+        product_name = supplier.product.name
+
+        if product_name in self.suppliers:
+            self.suppliers[product_name][supplier.name] = supplier
+        else:
+            self.suppliers[product_name] = {supplier.name: supplier}
+
+
+
+
 
 
         # preproducts = []
