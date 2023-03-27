@@ -1,31 +1,27 @@
 from .product import Product
 
 class Module:
-    def __init__(self, name, product: Product, suppliers={}, risks={}, output_step=1000, output_warehouse_max=None):
+    def __init__(self, name: str, product: str, part_capacity=1000):
 
         self.name = name
         self.product = product
-        self.suppliers = suppliers
-        self.parts_step = output_step
-        self.output_warehouse_max = output_warehouse_max
-        self.input_warehouse_stock = 0
-        self.input_warehouse_stock = 0
-        self.risks = risks
+        self.suppliers = {}
+        self.risks = []
+        self.parts_step = part_capacity
         self.capacity = 1
         self.capacities = []
 
-    def add_risk(self, risk):
+    def add_risk(self, risk_name):
 
-        self.risks[risk.name] = risk
+        self.risks.append(risk_name)
 
-    def add_supplier(self, supplier):
-
-        product_name = supplier.product.name
+    def add_supplier(self, supplier_name: str, product_name: str):
 
         if product_name in self.suppliers:
-            self.suppliers[product_name][supplier.name] = supplier
+            self.suppliers[product_name].append(supplier_name)
         else:
-            self.suppliers[product_name] = {supplier.name: supplier}
+            self.suppliers[product_name] = [supplier_name]
+
 
 
 

@@ -1,8 +1,8 @@
-﻿name;description;Disruption;modules;probability;capacity reduction;delay;recover time
-A;Data is missing;Order is late;sss, ssa, ssb;1;1;;100
-B;Different data format;Production is blocked;dde, sss;0.5;1;;100
-C;Cyber-security issues;Critical data is not shared with stakeholders;ddr, sss;0.5;1;;100
-D;Issues with machines/furnaces;Production is blocked;ddt, sss;1;1;1;100
-E;Deviations in material characteristics;Delay in supplying product to customer;ffg, sss;0.5;1;1;100
-F;Dependency on supplier;Lack of redundancy leads to disruption in operations;ffb, sss;1;1;;100
-G;Machine breakdown;;ffb, sss;1;1;;100
+﻿name;description;disruption;modules;probability;capacity reduction;delay;recover time;common risk
+A;Data is missing;Order is late;sss, ssa, ssb;1;0.1;;100;
+B;Different data format;Production is blocked;dde, sss;0.5;1;;100;1
+C;Cyber-security issues;Critical data is not shared with stakeholders;ddr, sss;0.5;1;;100;
+D;Issues with machines/furnaces;Production is blocked;ddt, sss;1;1;1;100;1
+E;Deviations in material characteristics;Delay in supplying product to customer;ffg, sss;0.5;1;1;100;
+F;Dependency on supplier;Lack of redundancy leads to disruption in operations;ffb, sss;1;1;;100;1
+G;Machine breakdown;;ffb, sss;1;1;;100;
