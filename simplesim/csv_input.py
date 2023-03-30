@@ -19,6 +19,8 @@ class CSVInput:
 
         risk_assembly_df = pd.DataFrame()
 
+        print(risk_df)
+
         for i in range(len(risk_df.index)):
             row = risk_df.iloc[i]
             row = row.where(row == row, 0)
