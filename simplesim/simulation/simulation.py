@@ -3,10 +3,13 @@ import numpy as np
 
 
 class Simulation:
-    def __init__(self):
-        pass
+    def __init__(self, modules):
+        self.modules = modules
+
 
     def simulate(self, num_tests: int, num_time_steps, batch_size: int):
+
+
 
         num_batches = np.ceil(num_time_steps / batch_size)
 
