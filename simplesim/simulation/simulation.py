@@ -9,8 +9,6 @@ class Simulation:
 
     def simulate(self, num_tests: int, num_time_steps, batch_size: int):
 
-
-
         num_batches = np.ceil(num_time_steps / batch_size)
 
         for i in range(num_tests):

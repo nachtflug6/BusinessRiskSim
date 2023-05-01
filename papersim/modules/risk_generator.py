@@ -12,8 +12,10 @@ class Risk:
 
 
 class RiskGen:
-    def __init__(self, risks, num_modules, device='cpu'):
+    def __init__(self, risks, num_modules, num_runs, device='cpu'):
         self.device = device
+        self.num_runs = num_runs
+        self.num_modules = num_modules
 
         probabilities = []
         impacts = []
@@ -38,20 +40,21 @@ class RiskGen:
                     risk_assignment_vec[exposed_module] = 1
                     module_assignment.append(risk_assignment_vec)
 
-        self.probabilities = th.tensor(probabilities, dtype=th.float64)
-        self.impacts = th.tensor(impacts, dtype=th.float64)
-        self.delays = th.tensor(delays, dtype=th.int32)
-        self.module_assignment = th.tensor(module_assignment, dtype=th.int32)
-        self.cooldown = th.zeros_like(self.delays, dtype=th.int32)
-
-        self.risk_impact_tensor = th.zeros_like(self.probabilities, dtype=th.float64)
+        self.original_probabilities = th.tensor(np.array(probabilities), dtype=th.float64).repeat(num_runs, 1).to(device)
+        self.num_risks = len(probabilities)
+        self.probabilities = self.original_probabilities
+        self.impacts = th.tensor(np.array(impacts), dtype=th.float64).repeat(num_runs, 1).to(device)
+        self.delays = th.tensor(np.array(delays), dtype=th.int32).repeat(num_runs, 1).to(device)
+        self.cooldown = th.zeros_like(self.delays, dtype=th.int32).to(device)
+        self.module_assignment = th.tensor(np.array(module_assignment), dtype=th.int32).to(device)
+        self.risk_impact_tensor = th.zeros_like(self.probabilities, dtype=th.float64).to(device)
 
     def step(self):
 
-        probability_tensor = self.probabilities.to(self.device)
-        impact_tensor = self.impacts.to(self.device)
-        delay_tensor = self.delays.to(self.device)
-        cooldown_tensor = self.cooldown.to(self.device)
+        probability_tensor = self.probabilities
+        impact_tensor = self.impacts
+        delay_tensor = self.delays
+        cooldown_tensor = self.cooldown
 
         event_tensor = th.where(probability_tensor > th.rand(probability_tensor.shape).to(self.device), 1, 0).to(self.device)
 
@@ -64,5 +67,18 @@ class RiskGen:
         self.risk_impact_tensor = risk_impact_tensor
         return risk_impact_tensor
 
-    def get_cap_i(self, i):
-        return th.min(th.ones_like(self.risk_impact_tensor) - self.risk_impact_tensor.mul(th.flatten(self.module_assignment[:, i])))
+    def get_cap(self):
+
+        risk_impact_tensor = self.risk_impact_tensor.repeat(self.num_modules, 1, 1).swapaxes(1, 2).swapaxes(0, 2)
+        module_assignment = self.module_assignment.unsqueeze(0)
+
+        output = risk_impact_tensor.mul(module_assignment)
+        output = th.max(output, axis=1).values
+        output = th.ones_like(output) - output
+        return output
+
+    def reduce_risk_i(self, i, factor=0.1):
+        multiplier = th.ones_like(self.original_probabilities)
+        multiplier[i] = 1 - factor
+        self.probabilities = self.original_probabilities * multiplier
+
