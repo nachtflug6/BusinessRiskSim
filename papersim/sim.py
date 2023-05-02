@@ -161,9 +161,9 @@ class GoodFlowSim:
 
         return inventory_volume, production_volume, production_volume, loss
 
-    def evaluate_risks(self, t_run, loss_function, factor=0.1, mode='r'):
+    def evaluate_risks(self, t_run, loss_function, factor=0.1, mode='p'):
 
-        assert mode in ['r', 'i', 't']
+        assert mode in ['p', 'i', 't']
 
         num_risks = self.riskgen.num_risks
         num_runs = num_risks + 1
@@ -172,7 +172,7 @@ class GoodFlowSim:
         for i in range(num_runs):
             if i > 0:
                 match mode:
-                    case 'r':
+                    case 'p':
                         self.riskgen.reduce_risk_probability_i(i - 1, factor=factor)
                     case 'i':
                         self.riskgen.reduce_risk_impact_i(i - 1, factor=factor)
