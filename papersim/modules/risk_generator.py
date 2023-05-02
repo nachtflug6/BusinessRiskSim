@@ -21,30 +21,44 @@ class RiskGen:
         impacts = []
         delays = []
         module_assignment = []
+        risk_name = []
+        risk_identity = []
 
-        for risk in risks:
+        for i, risk in enumerate(risks):
             if risk.global_effect:
+                risk_identity.append(i)
                 probabilities.append(risk.probability)
                 impacts.append(risk.impact)
                 delays.append(risk.delay)
+                risk_name.append('r' + str(i))
                 risk_assignment_vec = np.zeros(num_modules)
                 for exposed_module in risk.exposed_modules:
                     risk_assignment_vec[exposed_module] = 1
                 module_assignment.append(risk_assignment_vec)
             else:
                 for exposed_module in risk.exposed_modules:
+                    risk_identity.append(i)
                     probabilities.append(risk.probability)
+                    risk_name.append('r' + str(i) + '_' + str(exposed_module))
                     impacts.append(risk.impact)
                     delays.append(risk.delay)
                     risk_assignment_vec = np.zeros(num_modules)
                     risk_assignment_vec[exposed_module] = 1
                     module_assignment.append(risk_assignment_vec)
 
+        self.risk_name = risk_name
+        self.risk_identity = risk_identity
+
         self.original_probabilities = th.tensor(np.array(probabilities), dtype=th.float64).repeat(num_runs, 1).to(device)
-        self.num_risks = len(probabilities)
         self.probabilities = self.original_probabilities
-        self.impacts = th.tensor(np.array(impacts), dtype=th.float64).repeat(num_runs, 1).to(device)
-        self.delays = th.tensor(np.array(delays), dtype=th.int32).repeat(num_runs, 1).to(device)
+        self.num_risks = self.probabilities.shape[1]
+
+        self.original_impacts = th.tensor(np.array(impacts), dtype=th.float64).repeat(num_runs, 1).to(device)
+        self.impacts = self.original_impacts
+
+        self.original_delays = th.tensor(np.array(delays), dtype=th.int32).repeat(num_runs, 1).to(device)
+        self.delays = self.original_delays
+
         self.cooldown = th.zeros_like(self.delays, dtype=th.int32).to(device)
         self.module_assignment = th.tensor(np.array(module_assignment), dtype=th.int32).to(device)
         self.risk_impact_tensor = th.zeros_like(self.probabilities, dtype=th.float64).to(device)
@@ -77,8 +91,26 @@ class RiskGen:
         output = th.ones_like(output) - output
         return output
 
-    def reduce_risk_i(self, i, factor=0.1):
+    def reduce_risk_probability_i(self, i, factor=0.1):
         multiplier = th.ones_like(self.original_probabilities)
-        multiplier[i] = 1 - factor
+        multiplier[:, i] *= (1 - factor)
         self.probabilities = self.original_probabilities * multiplier
+
+    def reduce_risk_impact_i(self, i, factor=0.1):
+        multiplier = th.ones_like(self.original_impacts)
+        multiplier[:, i] *= 1 - factor
+        self.impacts = self.original_impacts * multiplier
+
+    def reduce_risk_time_i(self, i, factor=0.1):
+        multiplier = th.ones_like(self.original_delays)
+        multiplier = multiplier.to(th.float64)
+        multiplier[:, i] *= 1 - factor
+        new_delays = th.round(self.original_delays * multiplier)
+        new_delays = new_delays.to(th.int32)
+        self.delays = new_delays
+
+    def reset(self):
+        self.probabilities = self.original_probabilities
+        self.impacts = self.original_impacts
+        self.delays = self.original_delays
 

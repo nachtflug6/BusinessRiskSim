@@ -42,112 +42,145 @@ class GoodFlowSim:
             if th.sum(mod.product_vec) <= 0:
                 origin_modules[i] = 1
 
-        self.input_product_assignment = th.tensor(input_product_assignment, dtype=th.int32).repeat(num_runs, 1, 1)
-        self.output_product_assignment = th.tensor(output_product_assignment, dtype=th.int32).repeat(num_runs, 1, 1)
-        self.origin_modules = th.tensor(origin_modules, dtype=th.int32).repeat(num_runs, 1)
-        self.output_capacity = th.tensor(output_capacity, dtype=th.int32).repeat(num_runs, 1)
+        self.input_product_assignment = th.tensor(input_product_assignment, dtype=th.int32).repeat(num_runs, 1, 1).to(
+            self.device)
+        self.output_product_assignment = th.tensor(output_product_assignment, dtype=th.int32).repeat(num_runs, 1, 1).to(
+            self.device)
+        self.origin_modules = th.tensor(origin_modules, dtype=th.int32).repeat(num_runs, 1).to(self.device)
+        self.max_production_capacity = th.tensor(output_capacity, dtype=th.int32).repeat(num_runs, 1).to(self.device)
         self.input_product_assignment_helper = th.where(self.input_product_assignment == 0, th.iinfo(th.int32).max,
-                                                        self.input_product_assignment)
+                                                        self.input_product_assignment).to(self.device)
 
-        substract_tensor = np.zeros((num_transport_modules, num_production_modules, num_products))
-        add_tensor = np.zeros((num_transport_modules, num_production_modules, num_products))
+        exit_transport_assignment = np.zeros((num_transport_modules, num_production_modules, num_products))
+        entry_transport_assignment = np.zeros((num_transport_modules, num_production_modules, num_products))
         trans_output_capacity = np.zeros(num_transport_modules)
 
         for i, mod in enumerate(self.transport_modules, 0):
-            substract_tensor[i, mod.input_mod_idx, mod.product_idx] = 1
-            add_tensor[i, mod.output_mod_idx, mod.product_idx] = 1
+            exit_transport_assignment[i, mod.input_mod_idx, mod.product_idx] = 1
+            entry_transport_assignment[i, mod.output_mod_idx, mod.product_idx] = 1
             trans_output_capacity[i] = mod.max_capacity
 
-        self.subtract_tensor = th.tensor(substract_tensor, dtype=th.int32).repeat(num_runs, 1, 1, 1)
-        self.add_tensor = th.tensor(add_tensor, dtype=th.int32).repeat(num_runs, 1, 1, 1)
-        self.trans_output_capacity = trans_output_capacity
+        self.exit_transport_assignment = th.tensor(exit_transport_assignment, dtype=th.int32).repeat(num_runs, 1, 1,
+                                                                                                     1).to(self.device)
+        self.entry_transport_assignment = th.tensor(entry_transport_assignment, dtype=th.int32).repeat(num_runs, 1, 1,
+                                                                                                       1).to(
+            self.device)
+        self.trans_output_capacity = th.tensor(trans_output_capacity, dtype=th.int32).repeat(num_runs, 1).to(
+            self.device)
 
-    def run(self, t_run, loss_function):
+    def run(self, t_run, loss_function, no_record=False):
 
-        inventory_volume = th.zeros(t_run + 1, self.num_runs, 2, self.num_production_modules,
+        if no_record:
+            inventory_volume = th.zeros(1, self.num_runs, 2, self.num_production_modules,
                                     self.num_production_modules).to(self.device)
-        production_volume = th.zeros(t_run + 1, self.num_runs, self.num_production_modules).to(self.device)
-        # transport_volume = th.zeros(t_run + 1, self.num_runs, self.num_transport_modules).to(self.device)
+            production_volume = th.zeros(1, self.num_runs, self.num_production_modules).to(self.device)
+            transport_volume = th.zeros(1, self.num_runs, self.num_transport_modules).to(self.device)
+        else:
+            inventory_volume = th.zeros(t_run + 1, self.num_runs, 2, self.num_production_modules,
+                                    self.num_production_modules).to(self.device)
+            production_volume = th.zeros(t_run + 1, self.num_runs, self.num_production_modules).to(self.device)
+            transport_volume = th.zeros(t_run + 1, self.num_runs, self.num_transport_modules).to(self.device)
+
         loss = th.zeros(t_run + 1, self.num_runs).to(self.device)
 
         for i in range(t_run):
             self.riskgen.step()
             capacities = self.riskgen.get_cap()
+
+            # Production
+            if no_record:
+                current_production_stock = inventory_volume[0, :, 0]
+            else:
+                current_production_stock = inventory_volume[i, :, 0]
+
             prod_capacities = capacities[:, 0:self.num_production_modules]
+            real_prod_capacities = self.max_production_capacity * prod_capacities
+            real_prod_capacities = real_prod_capacities.to(th.int32)
+
+            real_av_storage = th.divide(current_production_stock, self.input_product_assignment)
+            real_available_to_produce = th.where(real_av_storage != real_av_storage,
+                                                 th.iinfo(th.int32).max, real_av_storage)
+            real_available_to_produce = th.min(real_available_to_produce, axis=2).values
+
+            real_production = th.where(self.origin_modules > 0, real_prod_capacities,
+                                       th.minimum(real_available_to_produce, real_prod_capacities))
+
+            if no_record:
+                production_volume[0] = real_production
+            else:
+                production_volume[i] = real_production
+            loss[i] = loss_function(self.max_production_capacity[:, -1], real_production[:, -1])
+
+            used_input_stock = self.input_product_assignment * real_production.unsqueeze(2).to(th.int32)
+            produced_output_stock = self.output_product_assignment * real_production.unsqueeze(2).to(th.int32)
+
+            if no_record:
+                inventory_volume[0, :, 0] -= used_input_stock
+                inventory_volume[0, :, 1] += produced_output_stock
+            else:
+                inventory_volume[i, :, 0] -= used_input_stock
+                inventory_volume[i, :, 1] += produced_output_stock
+
+            # Transport
+
+            if no_record:
+                current_transport_stock = inventory_volume[0, :, 1]
+            else:
+                current_transport_stock = inventory_volume[i, :, 1]
+
             trans_capacities = capacities[:, self.num_production_modules:]
+            real_trans_capacities = self.trans_output_capacity * trans_capacities
+            real_trans_capacities = real_trans_capacities.to(th.int32)
 
-            available_produce = th.min(th.where(self.input_product_assignment > 0,
-                                                inventory_volume[i, :, 0] // self.input_product_assignment_helper,
-                                                th.iinfo(th.int32).max), axis=2).values.to(th.int32)
-            current_capacity = th.floor(prod_capacities * self.output_capacity).to(th.int32)
-            current_production = th.floor(th.where(self.origin_modules > 0, current_capacity,
-                                                   th.where(current_capacity > available_produce, available_produce,
-                                                            current_capacity))).to(th.int32)
+            real_av_storage = current_transport_stock.repeat(3, 1, 1, 1).swapaxes(0,
+                                                                                  1) // self.exit_transport_assignment
+            real_av_storage = th.where(real_av_storage == th.inf, 0, real_av_storage)
+            real_av_storage = th.where(real_av_storage != real_av_storage, 0, real_av_storage)
+            real_av_storage = th.sum(
+                th.sum(th.where(real_av_storage != real_av_storage, 0, real_av_storage), axis=2),
+                axis=2).to(th.int32)
 
-            real_production = current_production.unsqueeze(1).repeat(1, self.num_production_modules,
-                                                                     1) * self.output_product_assignment
+            real_transport = th.minimum(real_av_storage, real_trans_capacities)
 
-            production_volume[i] = th.sum(real_production, axis=2)
+            if no_record:
+                transport_volume[0] = real_transport
+            else:
+                transport_volume[i] = real_transport
+            exit_tensor = th.sum(
+                self.exit_transport_assignment * real_transport.unsqueeze(2).unsqueeze(2), axis=1)
+            entry_tensor = th.sum(
+                self.entry_transport_assignment * real_transport.unsqueeze(2).unsqueeze(2), axis=1)
 
-            inventory_volume[i, :, 0] -= self.input_product_assignment * production_volume[i].repeat(4, 1, 1).swapaxes(0, 1)
-            inventory_volume[i, :, 1] += real_production
+            if no_record:
+                inventory_volume[0, :, 1] -= exit_tensor
+                inventory_volume[0, :, 0] += entry_tensor
+            else:
+                inventory_volume[i, :, 1] -= exit_tensor
+                inventory_volume[i, :, 0] += entry_tensor
+                inventory_volume[i + 1] = inventory_volume[i]
 
-            real_transportation_subtract = (trans_capacities * self.trans_output_capacity).to(th.int32)
-            real_transportation_subtract = th.sum(
-                self.subtract_tensor * real_transportation_subtract.repeat(self.num_production_modules,
-                                                                           self.num_products, 1,
-                                                                           1).swapaxes(0, 2).swapaxes(1, 3), axis=1)
+        return inventory_volume, production_volume, production_volume, loss
 
-            balance = inventory_volume[i, :, 1] - real_transportation_subtract
-            balance = th.where(balance < 0, 0, balance)
-            real_transportation_subtract = inventory_volume[i, :, 1] - balance
-            real_transportation_volume = th.sum(real_transportation_subtract, axis=2)[:, :-1]
+    def evaluate_risks(self, t_run, loss_function, factor=0.1, mode='r'):
 
+        assert mode in ['r', 'i', 't']
 
-            real_transportation_add = th.sum(
-                self.add_tensor * real_transportation_volume.repeat(self.num_production_modules, self.num_products, 1,
-                                                                    1).swapaxes(0, 2).swapaxes(1, 3), axis=1)
+        num_risks = self.riskgen.num_risks
+        num_runs = num_risks + 1
+        losses_for_risk = th.zeros(num_runs)
 
-            inventory_volume[i, :, 0] = inventory_volume[i, :, 0] + real_transportation_add
-            inventory_volume[i, :, 1] = inventory_volume[i, :, 1] - real_transportation_subtract
+        for i in range(num_runs):
+            if i > 0:
+                match mode:
+                    case 'r':
+                        self.riskgen.reduce_risk_probability_i(i - 1, factor=factor)
+                    case 'i':
+                        self.riskgen.reduce_risk_impact_i(i - 1, factor=factor)
+                    case 't':
+                        self.riskgen.reduce_risk_time_i(i - 1, factor=factor)
+            _, _, _, loss = self.run(t_run, loss_function, no_record=True)
+            losses_for_risk[i] = th.mean(loss)
 
-            loss[i] = loss_function(prod_capacities[:, -1], current_production[:, -1])
+        self.riskgen.reset()
 
-            inventory_volume[i + 1] = inventory_volume[i]
-
-        return inventory_volume, production_volume, loss
-
-    #
-    #
-    #         for mod in self.production_modules:
-    #             mod.current_capacity = self.riskgen.get_cap_i(mod.idx)
-    #             inventory, production = mod.process(inventory_volume[k, i], production_volume[k, i], self.device)
-    #             inventory_volume[k, i] = inventory
-    #             production_volume[k, i] = production
-    #
-    #         for mod in self.transport_modules:
-    #             mod.current_capacity = self.riskgen.get_cap_i(mod.idx)
-    #             inventory, transport = mod.process(inventory_volume[k, i], transport_volume[k, i], self.device)
-    #             inventory_volume[k, i] = inventory
-    #             transport_volume[k, i] = transport
-    #
-    #         loss[k, i] = loss_function(self.production_modules[-1].max_capacity, production_volume[k, i, 0, -1])
-    #
-    #         inventory_volume[k, i + 1] = inventory_volume[k, i]
-    #
-    #     return inventory_volume[:, :-1], production_volume[:, :-1], transport_volume[:, :-1], loss[:, :-1]
-    #
-    # def evaluate_risks(self, num_run, t_run, loss_function, factor=0.1):
-    #
-    #     num_risks = self.riskgen.num_risks
-    #     num_runs = num_risks + 1
-    #     losses_for_risk = th.zeros(num_runs)
-    #
-    #     for i in range(num_runs):
-    #         print(i, '/', num_runs)
-    #         if i > 0:
-    #             self.riskgen.reduce_risk_i(i, factor=factor)
-    #         _, _, _, loss = self.run(num_run, t_run, loss_function)
-    #         losses_for_risk[i] = th.sum(loss)
-    #
-    #     return losses_for_risk
+        return losses_for_risk
